@@ -217,7 +217,7 @@ def parse_args():
 
 def verify_config(config: dict):
     required_entries = ['rand_seed', 'start_year', 'duration', 'n_agents']
-    missing_entries = [entry for entry in config if entry not in required_entries]
+    missing_entries = [entry for entry in required_entries if entry not in config]
     if len(missing_entries) > 0:
         missing_entries_str = ", ".join(missing_entries)
         raise MissingConfigurationException(f"Config is missing one or more required entries: {missing_entries_str}")
