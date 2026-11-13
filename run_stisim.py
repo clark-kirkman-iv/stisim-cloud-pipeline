@@ -19,10 +19,17 @@ import sciris as sc
 import starsim as ss
 import stisim as sti
 
+LOCAL = 'local'
+PLATFORMS = [LOCAL]
+
 DEFAULT_ARGS = {
     'input': Path('input'),
-    'output': Path('output')
+    'output': Path('output'),
+    'n_runs': 1,
+    'platform': LOCAL
 }
+
+class InvalidPlatformException(Exception): pass
 
 class MissingConfigurationException(Exception): pass
 
@@ -137,8 +144,7 @@ def make_sim(input_dir: Path, **kwargs):
 #
 
 
-def run_sim(config: dict, input_dir: Path = DEFAULT_ARGS['input'], output_dir: Path = DEFAULT_ARGS['output'],
-            verbose: bool = False):
+def run_sim(config: dict, input_dir: Path, output_dir: Path, verbose: bool = False):
     # first, configure the simulation
     seed = config['rand_seed']
     start = config['start_year']
@@ -177,6 +183,10 @@ def parse_args():
     parser.add_argument('-c', '--config', dest='config_file', type=str, required=True,
                         help='JSON configuration file for the simulation (Required).')
 
+    default = DEFAULT_ARGS['n_runs']
+    parser.add_argument('-n', '--n-runs', dest='n_runs', type=int, default=default,
+                        help=f'Number of stochastic simulation variations to run (Default: {default}).')
+
     default = DEFAULT_ARGS['input']
     parser.add_argument('-i', '--input', dest='input_dir', type=str, default=default,
                         help=f'Directory containing simulation input data files (Default: {default}).')
@@ -185,12 +195,23 @@ def parse_args():
     parser.add_argument('-o', '--output', dest='output_dir', type=str, default=default,
                         help=f'Output directory for simulation results (Default: {default}).')
 
+    default = DEFAULT_ARGS['platform']
+    platforms = ', '.join(PLATFORMS)
+    parser.add_argument('-p', '--platform', dest='platform', type=str, default=default,
+                        help=f'Execution platform for simulation(s) (Available: {platforms}) (Default: {default}).')
+
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
                         help='Print more information during processing (Default: False).')
 
     args = parser.parse_args()
     args.config_file = Path(args.config_file).absolute()
     args.output_dir = Path(args.output_dir).absolute()
+
+    if args.platform not in PLATFORMS:
+        raise InvalidPlatformException(f'Unknown platform: {args.platform}. Available: {platforms}')
+
+    if args.n_runs < 1:
+        raise ValueError(f"number of runs must be greater than 0, not {args.n_runs} .")
     return args
 
 
@@ -212,10 +233,32 @@ def load_config_file(filename):
     return config
 
 
+def run_local(config: dict, rand_seeds: list[int], input_dir: Path, output_dir: Path, verbose: bool = False):
+    # Simple, serial execution of each stochastic variant locally. Each variant gets a different random seed and a
+    # different output directory
+
+    # ensure we have a clean root output directory to contain the individual simulation results
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True)
+
+    for i, rand_seed in enumerate(rand_seeds):
+        config['rand_seed'] = rand_seed
+        output_dir = Path(args.output_dir, f"seed-{rand_seed}")
+        run_sim(config=config, input_dir=input_dir, output_dir=output_dir, verbose=verbose)
+
+
 if __name__ == '__main__':
     # parse input arguments and load the provided config
     args = parse_args()
     config = load_config_file(filename=args.config_file)
 
+    # if more than one stochastic variation was requested, we need to separate config/outputs for each.
+    rand_seeds = [i for i in range(args.n_runs)]
+    # keep the specified run number in the base config for the first simulation, esp. in case no extra runs specified
+    rand_seeds[0] = config['rand_seed']
+
     # build and execute
-    run_sim(config=config, input_dir=args.input_dir, output_dir=args.output_dir, verbose=args.verbose)
+    if args.platform == LOCAL:
+        run_local(config=config, rand_seeds=rand_seeds, input_dir=args.input_dir, output_dir=args.output_dir,
+                  verbose=args.verbose)
