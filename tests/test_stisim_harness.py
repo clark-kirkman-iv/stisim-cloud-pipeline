@@ -1,6 +1,6 @@
 """
-Tests for the run_stisim.py Zimbabwe model harness script. Ensures input args minimum required config are valid with
-appropriate exceptions thrown in error cases.
+Tests for the run_stisim.py Zimbabwe model harness script. Ensures input args and minimum required config are valid with
+appropriate exceptions thrown in error cases. Verifies seed handling and multi-sim running.
 """
 
 import json
@@ -11,11 +11,11 @@ import tempfile
 from pathlib import Path
 
 from run_stisim import (generate_seeds, load_config_file, orchestrate, validate_config,
-                        InvalidPlatformException, InvalidInputDirectory, MissingConfigurationEntryException)
+                        InvalidInputDirectory, InvalidPlatformException, MissingConfigurationEntryException)
 
 @pytest.fixture
 def valid_config():
-    return {'rand_seed': 1, 'start_year': 1990, 'dur': 1, 'n_agents': 100}
+    return {'rand_seed': 420, 'start_year': 1990, 'dur': 1, 'n_agents': 5000}
 
 #
 # testing orchestrate input arg error cases
@@ -133,13 +133,33 @@ def test_seeds_are_unique():
     assert len(seeds) == len(set(seeds))
 
 #
-# Behavioral / regression tests
+# Multi-sim tests
 #
 
 @sc.timer()
-def test_default_works_regression():
-    raise NotImplementedError()
+def test_two_stochastic_variants_generates_two_separate_results_regression(valid_config):
+    # verify the execution harness generates the right number of distinct results, one with the required seed. This is
+    # not a data check on the results.
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_root = Path(temp_dir, 'output')
+        orchestrate(config=valid_config, input_dir=Path('input'), output_dir=output_root, n_seeds=2, platform='local')
 
-@sc.timer()
-def test_two_stochastic_variants_generates_two_separate_results_regression():
-    raise NotImplementedError()
+        # now verify that there are two output directories, one per simulation (seed) and that one of them used the
+        # default specified seed
+        expected_seed = valid_config['rand_seed']
+        expected_seed_dir = f"seed-{expected_seed}"
+        items = list(output_root.glob('*'))
+
+        assert len(items) == 2  # two items
+        for item in items:
+            assert item.is_dir()  # each is a directory
+        directory_names = [item.name for item in items]
+        assert expected_seed_dir in directory_names  # the required base seed was used and has an output dir
+
+        for directory in items:
+            # ensure prevalence.csv exists and is the only output file
+            per_sim_items = list(directory.glob('*'))
+            assert len(per_sim_items) == 1
+            item = per_sim_items[0]
+            assert item.is_file()  # it is a file
+            assert item.name == "prevalence.csv"  # it is prevalence data

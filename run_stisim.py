@@ -1,23 +1,11 @@
-"""
-Zimbabwe HIV model with calibrated parameters and UNAIDS comparison data.
-
-This example demonstrates how to build a data-driven HIV simulation:
-- Initial prevalence from CSV by risk group/sex/SW status
-- Condom use data by partnership type over time
-- ART and VMMC coverage from national program data
-- Testing interventions with FSW-targeted, general population, and low-CD4 strategies
-- UNAIDS estimates attached to sim.data for plot overlay
-"""
-import os
-import shutil
-from os.path import exists
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import sciris as sc
+import shutil
 import starsim as ss
 import stisim as sti
+
+from pathlib import Path
 
 LOCAL = 'local'
 PLATFORMS = [LOCAL]
@@ -37,7 +25,18 @@ class MissingConfigurationEntryException(Exception): pass
 
 #
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#
+# Original stisim Zimbabwe example model in here.
+
+"""
+Zimbabwe HIV model with calibrated parameters and UNAIDS comparison data.
+
+This example demonstrates how to build a data-driven HIV simulation:
+- Initial prevalence from CSV by risk group/sex/SW status
+- Condom use data by partnership type over time
+- ART and VMMC coverage from national program data
+- Testing interventions with FSW-targeted, general population, and low-CD4 strategies
+- UNAIDS estimates attached to sim.data for plot overlay
+"""
 
 # TODO: make_interventions, make_sim, and all their defaults (here) should be in a separate file, e.g. zimbabwe.py,
 #   which is essentially a standard module for loading/using with this harness.
@@ -141,7 +140,8 @@ def make_sim(input_dir: Path, **kwargs):
         data=hiv_data,
         **kwargs
     )
-#
+
+# End original stisim Zimbabwe example model
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #
 
@@ -256,8 +256,8 @@ def run_local(config: dict, rand_seeds: list[int], input_dir: Path, output_dir: 
 
     for i, rand_seed in enumerate(rand_seeds):
         config['rand_seed'] = rand_seed
-        output_dir = Path(output_dir, f"seed-{rand_seed}")
-        run_sim(config=config, input_dir=input_dir, output_dir=output_dir, verbose=verbose)
+        sim_output_dir = Path(output_dir, f"seed-{rand_seed}")
+        run_sim(config=config, input_dir=input_dir, output_dir=sim_output_dir, verbose=verbose)
 
 
 def orchestrate(config: dict, input_dir: Path, output_dir: Path, n_seeds: int, platform: str, dry_run: bool = False,
