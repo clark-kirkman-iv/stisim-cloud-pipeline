@@ -31,7 +31,9 @@ DEFAULT_ARGS = {
 
 class InvalidPlatformException(Exception): pass
 
-class MissingConfigurationException(Exception): pass
+class InvalidInputDirectory(Exception): pass
+
+class MissingConfigurationEntryException(Exception): pass
 
 #
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -175,6 +177,14 @@ def run_sim(config: dict, input_dir: Path, output_dir: Path, verbose: bool = Fal
     # TODO: route output to where the config file indicates
 
 
+def load_config_file(filename):
+    import json
+    with open(filename, 'r') as f:
+        config = json.load(f)
+    validate_config(config=config)
+    return config
+
+
 def parse_args():
     import argparse
 
@@ -206,31 +216,33 @@ def parse_args():
     args = parser.parse_args()
     args.config_file = Path(args.config_file).absolute()
     args.output_dir = Path(args.output_dir).absolute()
+    args.input_dir = Path(args.input_dir).absolute()
 
-    if args.platform not in PLATFORMS:
-        raise InvalidPlatformException(f'Unknown platform: {args.platform}. Available: {platforms}')
-
-    if args.n_runs < 1:
-        raise ValueError(f"number of runs must be greater than 0, not {args.n_runs} .")
+    args.config = load_config_file(filename=args.config_file)
     return args
 
 
-def verify_config(config: dict):
+def validate_config(config: dict):
     required_entries = ['rand_seed', 'start_year', 'duration', 'n_agents']
     missing_entries = [entry for entry in required_entries if entry not in config]
     if len(missing_entries) > 0:
-        missing_entries_str = ", ".join(missing_entries)
-        raise MissingConfigurationException(f"Config is missing one or more required entries: {missing_entries_str}")
+        missing_str = ", ".join(missing_entries)
+        raise MissingConfigurationEntryException(f"Config is missing one or more required entries: {missing_str}")
 
 
-def load_config_file(filename):
-    import json
-    with open(filename, 'r') as f:
-        config = json.load(f)
+def generate_seeds(n, base_seed):
+    if n < 1:
+        raise ValueError(f"Number of seeds must be greater than 0, not {n} .")
 
-    # report noisy, descriptive configuration errors now
-    verify_config(config=config)
-    return config
+    rand_seeds = [i for i in range(n)]
+
+    # keep the specified run number in the base config for the first simulation, esp. in case no extra runs specified
+    if base_seed in rand_seeds:
+        rand_seeds.remove(base_seed)
+        rand_seeds.insert(0, base_seed)
+    else:
+        rand_seeds[0] = base_seed  # overwriting any generated seed in index 0
+    return rand_seeds
 
 
 def run_local(config: dict, rand_seeds: list[int], input_dir: Path, output_dir: Path, verbose: bool = False):
@@ -244,21 +256,41 @@ def run_local(config: dict, rand_seeds: list[int], input_dir: Path, output_dir: 
 
     for i, rand_seed in enumerate(rand_seeds):
         config['rand_seed'] = rand_seed
-        output_dir = Path(args.output_dir, f"seed-{rand_seed}")
+        output_dir = Path(output_dir, f"seed-{rand_seed}")
         run_sim(config=config, input_dir=input_dir, output_dir=output_dir, verbose=verbose)
+
+
+def orchestrate(config: dict, input_dir: Path, output_dir: Path, n_seeds: int, platform: str, dry_run: bool = False,
+                verbose: bool = False):
+    # first, validate arguments whether they come from CLI or programmatic call
+    # report noisy, descriptive configuration errors now
+    validate_config(config=config)
+
+    if n_seeds < 1:
+        raise ValueError(f"number of runs must be greater than 0, not {n_seeds} .")
+
+    if not (input_dir.exists() and input_dir.is_dir()):
+        raise InvalidInputDirectory(f"Input directory does not exist or is not a directory: {input_dir}")
+
+    if platform not in PLATFORMS:
+        platforms_str = ", ".join(PLATFORMS)
+        raise InvalidPlatformException(f'Unknown platform: {platform}. Available: {platforms_str}')
+
+    if dry_run:
+        return
+
+    # if more than one stochastic variation was requested, we need separate config/outputs for each.
+    rand_seeds = generate_seeds(n=n_seeds, base_seed=config['rand_seed'])
+
+    # build and execute
+    if platform == LOCAL:
+        run_local(config=config, rand_seeds=rand_seeds, input_dir=input_dir, output_dir=output_dir,
+                  verbose=verbose)
 
 
 if __name__ == '__main__':
     # parse input arguments and load the provided config
     args = parse_args()
-    config = load_config_file(filename=args.config_file)
 
-    # if more than one stochastic variation was requested, we need to separate config/outputs for each.
-    rand_seeds = [i for i in range(args.n_runs)]
-    # keep the specified run number in the base config for the first simulation, esp. in case no extra runs specified
-    rand_seeds[0] = config['rand_seed']
-
-    # build and execute
-    if args.platform == LOCAL:
-        run_local(config=config, rand_seeds=rand_seeds, input_dir=args.input_dir, output_dir=args.output_dir,
-                  verbose=args.verbose)
+    orchestrate(config=args.config, input_dir=args.input_dir, output_dir=args.output_dir, n_seeds=args.n_runs,
+                platform=args.platform, verbose=args.verbose)
