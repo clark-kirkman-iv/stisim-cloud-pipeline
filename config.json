@@ -1,6 +1,6 @@
 {
     "rand_seed": 420,
     "start_year": 1990,
-    "duration": 40,
-    "n_agents": 1000
+    "dur": 5,
+    "n_agents": 5000
 }

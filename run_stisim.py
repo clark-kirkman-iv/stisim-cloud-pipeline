@@ -43,7 +43,7 @@ class MissingConfigurationEntryException(Exception): pass
 #   which is essentially a standard module for loading/using with this harness.
 
 # Sim settings
-default_sim_pars = dict(start=1990, stop=2025, age_scale=1000)
+default_sim_pars = dict(start=1990, age_scale=1000)
 
 # Calibrated parameters
 default_hiv_pars = dict(
@@ -150,7 +150,7 @@ def run_sim(config: dict, input_dir: Path, output_dir: Path, verbose: bool = Fal
     # first, configure the simulation
     seed = config['rand_seed']
     start = config['start_year']
-    duration = config['duration']
+    duration = config['dur']
     n_agents = config['n_agents']
 
     # ensure we have a clean output directory for use later
@@ -223,7 +223,7 @@ def parse_args():
 
 
 def validate_config(config: dict):
-    required_entries = ['rand_seed', 'start_year', 'duration', 'n_agents']
+    required_entries = ['rand_seed', 'start_year', 'dur', 'n_agents']
     missing_entries = [entry for entry in required_entries if entry not in config]
     if len(missing_entries) > 0:
         missing_str = ", ".join(missing_entries)
