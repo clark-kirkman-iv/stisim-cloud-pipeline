@@ -41,3 +41,11 @@ RUN pip install --no-cache-dir stisim
 # Switch to non-root user and standardize workspace
 USER appuser
 WORKDIR /app/workspace
+
+# ==========================================
+# STAGE 3: Test Runner (Production + Pytest)
+# ==========================================
+FROM production AS test
+
+RUN pip install --no-cache-dir --user pytest
+ENV PATH="/home/appuser/.local/bin:${PATH}"

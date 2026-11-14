@@ -7,9 +7,9 @@ services:
       target: developer
     image: stisim-hiv:3.14-dev
     volumes:
-      # Mounts your simulation scripts and config files
+      # Mounts simulation scripts and config files
       - .:/app/workspace
-      # Maps your local cloned stisim source code into the container for use
+      # Maps local cloned stisim source code into the container for use
       - ${STISIM_REPO_PATH:-../stisim}:/stisim
     stdin_open: true
     tty: true
@@ -22,5 +22,17 @@ services:
       target: production
     image: stisim-hiv:3.14-prod
     volumes:
-      # Mounts your simulation scripts and config files identically to dev
+      # Mounts simulation scripts and config files
       - .:/app/workspace
+
+  # ROUTE C: Automated Test Runner
+  test-service:
+    profiles: ["test"]
+    build:
+      context: .
+      target: test
+    image: stisim-hiv:3.14-test
+    volumes:
+      # Mounts simulation scripts and config files
+      - .:/app/workspace
+    command: pytest tests/test_stisim_harness.py
