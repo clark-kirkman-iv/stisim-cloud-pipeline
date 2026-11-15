@@ -23,7 +23,9 @@ class InvalidInputDirectory(Exception): pass
 
 class MissingConfigurationEntryException(Exception): pass
 
-#
+# TODO: Abstract model configuration code/input to separate project folder:
+#  https://github.com/clark-kirkman-iv/stisim-cloud-pipeline/issues/3
+
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Original stisim Zimbabwe example model in here.
 
@@ -37,9 +39,6 @@ This example demonstrates how to build a data-driven HIV simulation:
 - Testing interventions with FSW-targeted, general population, and low-CD4 strategies
 - UNAIDS estimates attached to sim.data for plot overlay
 """
-
-# TODO: make_interventions, make_sim, and all their defaults (here) should be in a separate file, e.g. zimbabwe.py,
-#   which is essentially a standard module for loading/using with this harness.
 
 # Sim settings
 default_sim_pars = dict(start=1990, age_scale=1000)
@@ -132,7 +131,7 @@ def make_sim(input_dir: Path, **kwargs):
 
     return sti.Sim(
         demographics='zimbabwe',
-        datafolder=input_dir,  # TODO: why the heck is this needed? Is it used at all??
+        datafolder=input_dir,  # if datafolder not provided, stisim will attempt to download files from UN WPP
         diseases=[hiv],
         networks=[network, ss.MaternalNet(), ss.BreastfeedingNet()],
         interventions=intvs + user_intvs,
@@ -168,13 +167,10 @@ def run_sim(config: dict, input_dir: Path, output_dir: Path, verbose: bool = Fal
         print(f"Writing results to {output_dir}")
 
     results = sim.results
-    prevalence = sim.results.hiv.prevalence[:]  # TODO: why the "[:]" ???
+    prevalence = sim.results.hiv.prevalence[:]  # convert result to numpy.ndarray
 
     output_file = Path(output_dir, 'prevalence.csv')
     pd.DataFrame(prevalence).to_csv(output_file)
-    # prevalence.to_csv(output_file)
-
-    # TODO: route output to where the config file indicates
 
 
 def load_config_file(filename):
