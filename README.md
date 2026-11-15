@@ -1,6 +1,7 @@
 # Containerized STIsim Simulation Pipeline
 
-![CI Tests](https://github.com)
+[![CI Tests](https://github.com/clark-kirkman-iv/stisim-cloud-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/clark-kirkman-iv/stisim-cloud-pipeline/actions/workflows/ci.yml)
+
 
 A reproducible, multi-stage Docker execution harness wrapping the [STIsim](https://github.com/starsimhub/stisim) agent-based modeling framework (`hivsim` Zimbabwe example).
 
