@@ -95,8 +95,6 @@ The multi-stage `Dockerfile` separates local engine development, minimal product
 
 ## Roadmap & Open Exploration Issues
 
-## Roadmap & Open Exploration Issues
-
 * **Phase 1 (Complete):** Multi-stage containerization (`dev`, `prod`, `test`), CLI orchestration harness (`run_stisim.py`), automated unit/regression testing, and GitHub Actions CI.
 * **Phase 2 (Complete):** Decoupled simulation execution from scenario-specific configuration by introducing a `-f / --frame` module interface (each frame directory exposing `make_sim(seed)` alongside a co-located `input/` directory), turning `run_stisim.py` into a scenario-agnostic execution harness:
   * [Abstract model configuration and inputs into pluggable project packages](https://github.com/clark-kirkman-iv/stisim-cloud-pipeline/issues/3)
