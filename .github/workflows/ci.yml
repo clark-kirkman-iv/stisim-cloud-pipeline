@@ -13,4 +13,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build test container and run tests
-        run: FRAMES_DIR=. docker compose --profile test run --rm --build test-service
+        run: FRAMES_DIR=. OUTPUT_DIR=./output docker compose --profile test run --rm --build test-service
