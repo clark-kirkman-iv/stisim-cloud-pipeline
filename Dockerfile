@@ -41,6 +41,7 @@ RUN pip install --no-cache-dir stisim
 # Switch to non-root user and standardize workspace
 USER appuser
 WORKDIR /app/workspace
+COPY --chown=appuser:appuser run_stisim.py /app/workspace/
 
 # ==========================================
 # STAGE 3: Test Runner (Production + Pytest)
