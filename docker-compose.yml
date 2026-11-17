@@ -7,8 +7,21 @@ services:
       target: developer
     image: stisim-hiv:3.14-dev
     volumes:
-      # Mounts simulation scripts and config files
-      - .:/app/workspace
+      # Mounts live editable runner script without binding the entire repo root
+      - ./run_stisim.py:/app/workspace/run_stisim.py
+      # destination for execution output, mapping back out of container
+      - type: bind
+        source: ${OUTPUT_DIR:?Set OUTPUT_DIR in .env to be your desired local output directory.}
+        target: /app/workspace/output
+        bind:
+          create_host_path: false
+      # map in an explicitly set frames directory to the standard workspace without accidental creation on host side
+      - type: bind
+        source: ${FRAMES_DIR:?Set FRAMES_DIR in .env to your frames directory (e.g., FRAMES_DIR=./examples)}
+        target: /app/workspace/frames
+        read_only: true
+        bind:
+          create_host_path: false
       # Maps local cloned stisim source code into the container for use
       - ${STISIM_REPO_PATH:-../stisim}:/stisim
     stdin_open: true
@@ -22,8 +35,21 @@ services:
       target: production
     image: stisim-hiv:3.14-prod
     volumes:
-      # Mounts simulation scripts and config files
-      - .:/app/workspace
+      # NOTE: unlike dev-service, prod-service has run_stisim.py baked in via COPY in the Dockerfile (no mounting here)
+      #
+      # destination for execution output, mapping back out of container
+      - type: bind
+        source: ${OUTPUT_DIR:?Set OUTPUT_DIR in .env to be your desired local output directory.}
+        target: /app/workspace/output
+        bind:
+          create_host_path: false
+      # map in an explicitly set frames directory to the standard workspace without accidental creation on host side
+      - type: bind
+        source: ${FRAMES_DIR:?Set FRAMES_DIR in .env to your frames directory (e.g., FRAMES_DIR=./examples)}
+        target: /app/workspace/frames
+        read_only: true
+        bind:
+          create_host_path: false
 
   # ROUTE C: Automated Test Runner
   test-service:
@@ -33,6 +59,6 @@ services:
       target: test
     image: stisim-hiv:3.14-test
     volumes:
-      # Mounts simulation scripts and config files
-      - .:/app/workspace
-    command: pytest tests/test_stisim_harness.py
+      # Mounts the repo, including tests/ (tests refers to examples/zimbabwe by default, so doing whole cwd)
+      - .:/app/workspace:ro
+    command: pytest -p no:cacheprovider tests/test_stisim_harness.py

@@ -1,3 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stisim-cloud-pipeline"
+version = "0.2.0"
+description = "Containerized, scenario-agnostic execution harness for STIsim simulations"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "stisim",
+    "pandas",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.setuptools]
+py-modules = ["run_stisim"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
-

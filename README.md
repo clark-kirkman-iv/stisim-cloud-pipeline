@@ -5,7 +5,7 @@
 
 A reproducible, multi-stage Docker execution harness wrapping the [STIsim](https://github.com/starsimhub/stisim) agent-based modeling framework (`hivsim` Zimbabwe example).
 
-This repository implements **Phase 1** of a cloud simulation architecture: packaging scientific simulation runs in isolated, non-root containers with automated unit and regression testing prior to scaling onto cloud batch orchestration and remote storage.
+This repository implements **Phase 1 and Phase 2** of a cloud simulation architecture: packaging scenario-agnostic STIsim simulation runs in isolated, non-root containers with automated unit and regression testing prior to scaling onto cloud batch orchestration and remote storage.
 
 ---
 
@@ -13,11 +13,13 @@ This repository implements **Phase 1** of a cloud simulation architecture: packa
 
 All workflows are managed via Docker Compose profiles so host environments remain clean and reproducible.
 
-Clone the repository and run any of the three Docker Compose profiles from the project root:
+Clone the repository and configure your `.env` file so Docker Compose knows which host directory to mount into `/app/workspace/frames` (defaults to `./examples`):
 
 ```bash
 git clone https://github.com/clark-kirkman-iv/stisim-cloud-pipeline.git
 cd stisim-cloud-pipeline
+cp .env.example .env
+mkdir -p output  # especially if on Linux, output dir specified in .env MUST pre-exist
 ```
 
 ### 1. Run Automated Unit & Regression Tests
@@ -27,13 +29,13 @@ docker compose --profile test run --rm --build test-service
 ```
 
 ### 2. Run a Simulation (Production Container)
-Executes `run_stisim.py` inside a minimal `python:3.14-slim` image running as non-root `appuser` against the included `config.json` and `input/` data:
+Executes `run_stisim.py` inside a minimal `python:3.14-slim` image running as non-root `appuser` against the mounted `FRAMES_DIR` (`frames/zimbabwe` inside the container):
 ```bash
-docker compose --profile prod run --rm --build prod-service python run_stisim.py -c config.json
+docker compose --profile prod run --rm --build prod-service python run_stisim.py -f frames/zimbabwe
 ```
 
 ### 3. Interactive Developer Environment
-Mounts the local workspace alongside an editable local clone of `stisim` (defaulting to `../stisim`; override with `STISIM_REPO_PATH`) so changes to the upstream engine take effect immediately:
+Mounts your live `run_stisim.py` and `FRAMES_DIR` alongside an editable local clone of `stisim` (defaulting to `../stisim`; override with `STISIM_REPO_PATH`) so changes take effect immediately:
 ```bash
 # Clone upstream stisim adjacent to this repo (first-time setup)
 git clone https://github.com/starsimhub/stisim.git ../stisim
@@ -41,9 +43,8 @@ git clone https://github.com/starsimhub/stisim.git ../stisim
 # Launch interactive developer container
 docker compose --profile dev run --rm --build dev-service bash
 
-# Inside the container: run simulations or tests against your editable stisim checkout
-python run_stisim.py -c config.json
-pytest tests/
+# Inside the container: run simulations against your editable stisim checkout
+python run_stisim.py -f frames/zimbabwe
 ```
 
 
@@ -52,12 +53,11 @@ pytest tests/
 ## CLI Usage (`run_stisim.py`)
 
 ```text
-python run_stisim.py -c config.json [-n N_RUNS] [-i INPUT_DIR] [-o OUTPUT_DIR] [-p PLATFORM] [-v]
+python run_stisim.py -f FRAME_PATH [-n N_RUNS] [-o OUTPUT_DIR] [-p PLATFORM] [-v]
 ```
 
-* `-c, --config` **(Required):** Path to the JSON simulation configuration file (e.g., `config.json`).
+* `-f, --frame` **(Required):** Path to the simulation frame directory containing `__init__.py` (e.g., `examples/zimbabwe` locally, or `frames/zimbabwe` inside containers).
 * `-n, --n-runs` *(Optional):* Number of stochastic simulation seed variations to execute.
-* `-i, --input` *(Optional):* Directory containing demographic and epidemiological input CSVs (defaults to `input/`).
 * `-o, --output` *(Optional):* Directory where simulation results are written.
 * `-p, --platform` *(Optional):* Target execution platform for simulation orchestration.
 * `-v, --verbose` *(Optional):* Enable verbose progress logging during execution.
@@ -69,7 +69,7 @@ python run_stisim.py -c config.json [-n N_RUNS] [-i INPUT_DIR] [-o OUTPUT_DIR] [
 The multi-stage `Dockerfile` separates local engine development, minimal production execution, and automated verification:
 
 * **`developer` (`dev-service`):** Installs Git, C/C++ compilers (build-essential), and editable `stisim[dev]` dependencies for local framework debugging.
-* **`production` (`prod-service`):** Minimal runtime environment installing `stisim` from PyPI and executing as non-root `appuser` for cloud/Kubernetes compliance.
+* **`production` (`prod-service`):** Minimal runtime environment installing `stisim` from PyPI, baking in `run_stisim.py`, and executing as non-root `appuser` for cloud/Kubernetes compliance.
 * **`test` (`test-service`):** Inherits directly from `production` and adds `pytest`, ensuring CI runs against the exact environment used in production.
 
 ```text
@@ -77,9 +77,9 @@ The multi-stage `Dockerfile` separates local engine development, minimal product
 ├── .github/workflows/ci.yml   # GitHub Actions CI running containerized tests on push to main
 ├── Dockerfile                 # Multi-stage build (developer, production, test)
 ├── docker-compose.yml         # Service profiles (dev, prod, test)
-├── run_stisim.py              # CLI orchestration entrypoint
-├── config.json                # Baseline simulation configuration
-├── input/                     # Demographic and epidemiological input datasets
+├── .env.example               # Template for FRAMES_DIR and STISIM_REPO_PATH Compose variables
+├── run_stisim.py              # STIsim scenario-agnostic CLI orchestration entrypoint
+├── examples/zimbabwe/         # Reference simulation frame (__init__.py + co-located input/)
 ├── tests/                     # Unit and deterministic regression tests
 └── pyproject.toml             # Project metadata and dependencies
 ```
@@ -95,10 +95,13 @@ The multi-stage `Dockerfile` separates local engine development, minimal product
 
 ## Roadmap & Open Exploration Issues
 
+## Roadmap & Open Exploration Issues
+
 * **Phase 1 (Complete):** Multi-stage containerization (`dev`, `prod`, `test`), CLI orchestration harness (`run_stisim.py`), automated unit/regression testing, and GitHub Actions CI.
-* **Phase 2 (Planned):** Decouple simulation execution from model-specific configuration by introducing a standardized `--project` package interface, each project containing a `make_sim(input_dir, **kwargs)` alongside a co-located `inputs/` directory, turning `run_stisim.py` into a project-agnostic execution harness:
+* **Phase 2 (Complete):** Decoupled simulation execution from scenario-specific configuration by introducing a `-f / --frame` module interface (each frame directory exposing `make_sim(seed)` alongside a co-located `input/` directory), turning `run_stisim.py` into a scenario-agnostic execution harness:
   * [Abstract model configuration and inputs into pluggable project packages](https://github.com/clark-kirkman-iv/stisim-cloud-pipeline/issues/3)
 * **Phase 3 (Planned):** Containerized batch execution on Kubernetes and AWS cloud infrastructure with remote object storage persistence:
   * [Evaluate Kubernetes orchestration for parallel STIsim runs](https://github.com/clark-kirkman-iv/stisim-cloud-pipeline/issues/5)
   * [Evaluate AWS cloud deployment and storage integration via Kubernetes](https://github.com/clark-kirkman-iv/stisim-cloud-pipeline/issues/6)
 * **Phase 4 (Planned):** Downstream data retrieval, aggregation, and diagnostic visualization pipeline.
+* **Phase 5 (Planned):** Evolve the execution harness to be fully model-agnostic across any domain.
